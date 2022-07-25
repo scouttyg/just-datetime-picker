@@ -3,12 +3,12 @@ module Just
     module DatabaseAbstraction
       module Common
         extend ActiveSupport::Concern
-        
+
         class JustDateValidator < ActiveModel::EachValidator
           def validate_each(record, attribute, value)
             return if value.nil?
             return if value.to_s.empty?
-            
+
             begin
               Date.parse(value)
             rescue ArgumentError
@@ -37,34 +37,33 @@ module Just
           #   - +field_name+ -> attribute to turn into +Just Date/Time Picker+ storage
           #   - +options+ -> +Hash+ with options
           #     - +:add_to_attr_accessible+ -> call automatically attr_accessible for attributes? (+boolean+)
-          # 
+          #
           def self.just_define_datetime_picker(field_name, options = {})
             attr_reader "#{field_name}_time_hour"
             attr_reader "#{field_name}_time_minute"
-            
+
             validates "#{field_name}_date",        :just_date => true, :allow_nil => true, :allow_blank => false
             validates "#{field_name}_time_hour",   :numericality => { :only_integer => true, :greater_than_or_equal_to => 0, :less_than_or_equal_to => 23, :message => :just_datetime_invalid_time_hour }, :allow_nil => true, :allow_blank => false
             validates "#{field_name}_time_minute", :numericality => { :only_integer => true, :greater_than_or_equal_to => 0, :less_than_or_equal_to => 59, :message => :just_datetime_invalid_time_minute }, :allow_nil => true, :allow_blank => false
 
-            after_validation do 
+            after_validation do
               date_attribute   = "#{field_name}_date".to_sym
               hour_attribute   = "#{field_name}_time_hour".to_sym
               minute_attribute = "#{field_name}_time_minute".to_sym
-              hour_value       = self.send(hour_attribute)
-              minute_value     = self.send(minute_attribute)
+              hour_value = self.send(hour_attribute)
+              minute_value = self.send(minute_attribute)
 
-              self.errors[hour_attribute].each{ |e| self.errors[field_name] << e }
-              self.errors[minute_attribute].each{ |e| self.errors[field_name] << e }
-              self.errors[date_attribute].each{ |e| self.errors[field_name] << e }
-              
-              self.errors[field_name].uniq!
-            end          
+              self.errors[hour_attribute].each { |e| self.errors[field_name] << e }
+              self.errors[minute_attribute].each { |e| self.errors[field_name] << e }
+              self.errors[date_attribute].each { |e| self.errors[field_name] << e }
 
+              self.errors[field_name]
+            end
 
             define_method "#{field_name}_date" do
               return instance_variable_get("@#{field_name}_date") if instance_variable_get("@#{field_name}_date")
               return nil if self.send(field_name).nil?
-              
+
               self.send(field_name).to_date.to_s
             end
 
@@ -74,7 +73,7 @@ module Just
               else
                 instance_variable_set("@#{field_name}_date", v)
               end
-              
+
               just_combine_datetime field_name
             end
 
@@ -84,20 +83,20 @@ module Just
               else
                 instance_variable_set("@#{field_name}_time_hour", v.to_i)
               end
-              
+
               just_combine_datetime field_name
             end
-            
+
             define_method "#{field_name}_time_minute=" do |v|
               if v.to_s.empty?
                 instance_variable_set("@#{field_name}_time_minute", nil)
               else
                 instance_variable_set("@#{field_name}_time_minute", v.to_i)
               end
-              
+
               just_combine_datetime field_name
             end
-            
+
             if options.has_key? :add_to_attr_accessible and options[:add_to_attr_accessible] == true
               attr_accessible "#{field_name}_date".to_sym, "#{field_name}_time_hour".to_sym, "#{field_name}_time_minute".to_sym
             end
@@ -122,18 +121,15 @@ module Just
               combined = "#{instance_variable_get("@#{field_name}_date")} #{sprintf("%02d", instance_variable_get("@#{field_name}_time_hour"))}:#{sprintf("%02d", instance_variable_get("@#{field_name}_time_minute"))}:00"
               begin
                 self.send("#{field_name}=", Time.zone.parse(combined))
-
               rescue ArgumentError
                 logger.warn "Just error while trying to set #{field_name} attribute: \"#{combined}\" is not valid date/time"
               end
-            
+
             elsif instance_variable_get("@#{field_name}_date").nil? and instance_variable_get("@#{field_name}_time_hour").nil? and instance_variable_get("@#{field_name}_time_minute").nil?
-              self.send("#{field_name}=", nil)              
+              self.send("#{field_name}=", nil)
             end
           end
         end # included
-
-        
       end
     end
   end
